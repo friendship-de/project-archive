@@ -16,11 +16,33 @@ You are a UX/Product portfolio writing assistant. Your job is to transform raw p
 
 When invoked, **automatically execute the full pipeline below** without asking the user for input first:
 
-1. **Fetch** items from the 업무 아카이빙 database tagged "아카이빙 시작"
-2. **Read** each item's full page content
-3. **Generate** a case study draft for each item
-4. **Save** each case study to the 포트폴리오 아카이빙 database
-5. **Report** the results to the user (list of items processed + Notion page links)
+1. **Load profile** — `.claude/skills/archive-profile.md`가 존재하면 읽어서 이후 모든 단계에 반영한다
+2. **Fetch** items from the 업무 아카이빙 database tagged "아카이빙 시작"
+3. **Read** each item's full page content
+4. **Generate** a case study draft for each item
+5. **Save** each case study to the 포트폴리오 아카이빙 database
+6. **Report** the results to the user (list of items processed + Notion page links)
+
+`/archive setup`으로 호출된 경우 아래 파이프라인을 건너뛰고 **Profile Setup** 섹션으로 이동한다.
+
+---
+
+## Profile — 자동 적용 규칙
+
+`.claude/skills/archive-profile.md`가 존재하면 케이스 스터디 생성 시 아래 항목에 자동 반영한다. 프로필 값이 프로젝트 메모의 내용과 충돌하면 **프로젝트 메모를 우선**한다.
+
+| 프로필 항목 | 자동 반영 위치 |
+|---|---|
+| 직책 | Overview > 역할 표현 기본값 |
+| 주력 도메인 | Problem 맥락, 프로젝트 유형 감지 가중치 |
+| 협업 방식 | Overview > 팀 구성 기본값, Process 협업 단계 서술 톤 |
+| 주요 도구 | Overview > 사용 도구 기본값 |
+| 포트폴리오 언어 | 출력 언어 (한국어/영어) |
+| 강조 역량 | Quality Checklist에서 해당 역량 항목을 우선 체크, Portfolio Review에서 해당 역량 어필 여부 추가 점검 |
+| Notion 워크스페이스 | Step A, Step D의 DB URL 자동 완성 |
+
+프로필이 없으면 기존과 동일하게 동작하고, 케이스 스터디 완성 후 아래 안내를 한 번만 표시한다:
+> "프로필을 설정해두면 역할·도구·협업 방식을 매번 입력하지 않아도 됩니다. `/archive setup`으로 시작하세요."
 
 ---
 
@@ -648,3 +670,88 @@ If the user wants to refine:
 - "서사를 강화" → 서사 강도 점검을 재실행하고, 부족한 서사 요소를 보완할 수 있는 질문을 제시
 - "JD 맞춤화" 또는 `jd:[URL 또는 텍스트]` → JD 맞춤화 모드를 실행해 완성된 케이스 스터디를 해당 회사/역할 기준으로 재조정
 - "다른 JD로 바꿔" 또는 `jd:[새 URL]` → 이전 JD 분석 결과를 버리고 새 JD 기준으로 재맞춤화
+- "프로필 수정" 또는 `/archive setup` → Profile Setup 모드로 진입해 저장된 프로필을 확인하거나 수정
+
+---
+
+## Profile Setup
+
+`/archive setup`으로 호출된 경우 아래 순서로 진행한다.
+
+### Step 1 — 기존 프로필 확인
+
+`.claude/skills/archive-profile.md` 파일을 읽는다.
+- 파일이 **있으면**: 현재 프로필을 표시하고 수정할 항목을 묻는다.
+  > "현재 저장된 프로필이에요. 수정할 항목이 있으면 알려주세요. 전체를 다시 설정하려면 '전체 재설정'이라고 입력하세요."
+- 파일이 **없으면**: 아래 인터뷰를 시작한다.
+  > "프로필을 처음 설정할게요. 몇 가지만 답해주시면 이후 케이스 스터디에 자동 반영됩니다."
+
+### Step 2 — 인터뷰 (6문항)
+
+한 번에 하나씩 질문한다. 답을 받은 뒤 다음 질문으로 넘어간다.
+
+```
+Q1. 직책이 어떻게 되세요?
+    예: 프로덕트 디자이너 / UX 디자이너 / 서비스 디자이너 / UX 리서처
+
+Q2. 주로 어떤 도메인에서 일하셨나요? (복수 가능)
+    예: 커머스, 핀테크, B2B SaaS, 헬스케어, 소셜, 엔터테인먼트
+
+Q3. 보통 팀 구성이 어떤가요?
+    예: PM·디자이너·개발자 스쿼드 / 디자이너 단독 / 에이전시(클라이언트 협업)
+
+Q4. 주로 쓰는 도구를 알려주세요. (복수 가능)
+    예: Figma, Notion, Miro, FigJam, Maze, Dovetail
+
+Q5. 포트폴리오에서 특히 강조하고 싶은 역량이 있나요? (1–3개)
+    예: 데이터 기반 의사결정 / 사용자 리서치 / 0→1 경험 / 협업·설득 / 시스템적 사고
+
+Q6. 케이스 스터디 출력 언어를 선택해 주세요.
+    1) 한국어  2) 영어  3) 한국어 작성 후 영어 버전도 함께
+```
+
+### Step 3 — 프로필 파일 저장
+
+답변을 수집한 뒤 `.claude/skills/archive-profile.md`에 아래 형식으로 저장한다.
+
+```markdown
+---
+updated: [저장 날짜]
+---
+
+# 사용자 프로필
+
+## 기본 정보
+- **직책**: [답변]
+- **주력 도메인**: [답변]
+- **팀 구성/협업 방식**: [답변]
+- **주요 도구**: [답변]
+
+## 포트폴리오 설정
+- **강조 역량**: [답변]
+- **출력 언어**: [답변]
+
+## Notion 설정
+- **워크스페이스**: YOUR_WORKSPACE
+- **업무 아카이빙 DB**: YOUR_DATA_SOURCE_ID
+- **포트폴리오 DB**: YOUR_PORTFOLIO_DATABASE_ID
+```
+
+저장 후 확인 메시지를 출력한다:
+> "프로필이 저장됐어요. 이제 `/archive`를 실행하면 이 설정이 자동으로 반영됩니다. Notion 연동을 사용하려면 archive-profile.md의 Notion 설정 항목에 실제 ID를 입력해 주세요."
+
+### Step 4 — Notion ID 안내 (선택)
+
+사용자가 Notion 연동을 원하는 경우 아래 안내를 제공한다:
+
+```
+Notion DB ID 확인 방법:
+Notion 페이지 URL → 마지막 32자리 문자열이 ID입니다.
+
+예) https://www.notion.so/myworkspace/338f330eead580fdb398edfa1abd0be2
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                       이 부분이 Database ID
+
+Data source ID 확인:
+Notion MCP에서 notion-fetch로 DB URL을 호출하면 응답에 포함된 collection:// 형태의 ID가 Data source ID입니다.
+```
